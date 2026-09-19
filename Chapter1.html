@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>繪本修復師 - 第一章：時光鑰匙</title>
+    
+    <script>
+        const rawData = localStorage.getItem('repairGame_save');
+        const saveData = rawData ? JSON.parse(rawData) : null;
+
+        if (!saveData || saveData.currentChapter < 1) {
+            alert('請先完成前面的章節！');
+            window.location.href = 'chapter0.html';
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #12100e;
+            --text-white: #f4eee1;
+            --text-gold: #d99b26;
+            --font-serif: 'Georgia', 'Noto Serif TC', 'PMingLiU', serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-white);
+            font-family: var(--font-serif);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .game-stage {
+            position: relative;
+            width: 1000px;
+            height: 562px;
+            border-radius: 6px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 1px rgba(217, 155, 38, 0.3);
+            overflow: hidden;
+            border: 1px solid rgba(217, 155, 38, 0.2);
+        }
+
+        canvas {
+            display: block;
+            border-radius: 6px;
+        }
+
+        .dialogue-box {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 35px 40px 25px 40px;
+            background: linear-gradient(to top, 
+                rgba(10, 8, 7, 0.98) 0%, 
+                rgba(18, 16, 14, 0.82) 65%, 
+                rgba(18, 16, 14, 0) 100%);
+            pointer-events: none;
+            z-index: 10;
+            
+            opacity: 0;
+            animation: dialogueFadeIn 1.2s ease-out 5s forwards;
+        }
+
+        @keyframes dialogueFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dialogue-text {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--text-white);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+            letter-spacing: 1.2px;
+        }
+
+        .speaker-name {
+            color: var(--text-gold);
+            font-weight: bold;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-stage">
+        <canvas id="stage" width="1000" height="562"></canvas>
+
+        <div class="dialogue-box">
+            <div class="dialogue-text" id="dialogueText">
+                <span class="speaker-name">達米安：</span>「大門似乎被鎖住了！試著利用跨頁翻頁將時光鑰匙帶回 P.1 吧！」
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
+
+        const W = canvas.width;
+        const H = canvas.height;
+
+        const pageW = W / 2;
+        const pageH = H;
+        const spineX = W / 2;
+        const spreadW = W;
+
+        const totalBookW = spreadW * 2;
+        let currentSpread = 0;
+        let isLevelCleared = false;
+
+        let startTime = null;
+        const TITLE_SHOW_DURATION = 5000;
+
+        const prevBtnArea = { x: 25, y: 15, w: 45, h: 45, symbol: '‹', hover: false };
+        const nextBtnArea = { x: W - 70, y: 15, w: 45, h: 45, symbol: '›', hover: false };
+
+        const targetLock = {
+            x: pageW * 0.4, 
+            y: pageH * 0.45,
+            radius: 25
+        };
+
+        let draggableObj = {
+            x: spreadW + pageW * 0.5,
+            y: pageH * 0.45,
+            radius: 38,
+            isDragging: false,
+            dragMode: 'primary',
+            dragOffsetX: 0,
+            dragOffsetY: 0
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSuccessSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsedTime = timestamp - startTime;
+
+            ctx.clearRect(0, 0, W, H);
+
+            if (elapsedTime < TITLE_SHOW_DURATION) {
+                drawFullPageTitle(elapsedTime);
+            } else {
+                drawPurePages();
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, W, H);
+                ctx.clip();
+
+                const currentSpreadOffset = currentSpread * spreadW;
+
+                drawTargetLock(targetLock.x - currentSpreadOffset, targetLock.y);
+
+                let viewX = draggableObj.x - currentSpreadOffset;
+                let viewY = draggableObj.y;
+
+                drawTargetObject(viewX, viewY);
+
+                if (draggableObj.x > totalBookW - draggableObj.radius) {
+                    drawTargetObject(viewX - totalBookW, viewY);
+                } else if (draggableObj.x < draggableObj.radius) {
+                    drawTargetObject(viewX + totalBookW, viewY);
+                }
+
+                ctx.restore();
+
+                drawPageButtons(timestamp);
+
+                if (elapsedTime < TITLE_SHOW_DURATION + 1000) {
+                    const fadeAlpha = 1 - ((elapsedTime - TITLE_SHOW_DURATION) / 1000);
+                    ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
+                    ctx.fillRect(0, 0, W, H);
+                }
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        /* 修正後的 100px 黑白標題繪製 */
+        function drawFullPageTitle(elapsedTime) {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, W, H);
+
+            let alpha = 1;
+            if (elapsedTime < 1000) {
+                alpha = elapsedTime / 1000;
+            } else if (elapsedTime > 4000) {
+                alpha = 1 - ((elapsedTime - 4000) / 1000);
+            }
+
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(25, 25, W - 50, H - 50);
+            ctx.strokeRect(33, 33, W - 66, H - 66);
+
+            // 直接指定字體系列，避免 Canvas 解析 CSS 變數失敗
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 52px "Georgia", "Noto Serif TC", "PMingLiU", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.letterSpacing = '8px';
+            ctx.fillText('第一章：毀滅吧', W / 2, H / 2 - 30);
+
+            ctx.fillStyle = '#cccccc';
+            ctx.font = 'italic 22px "Georgia", "Noto Serif TC", "PMingLiU", serif';
+            ctx.letterSpacing = '4px';
+            ctx.fillText('— 世界毀滅師 —', W / 2, H / 2 + 75);
+
+            ctx.restore();
+        }
+
+        function drawPurePages() {
+            ctx.fillStyle = '#f3ebd9';
+            ctx.fillRect(0, 0, pageW, pageH);
+
+            ctx.fillStyle = '#ebdcc3';
+            ctx.fillRect(spineX, 0, pageW, pageH);
+
+            const leftVignette = ctx.createRadialGradient(pageW / 2, pageH / 2, pageW * 0.35, pageW / 2, pageH / 2, pageW * 0.85);
+            leftVignette.addColorStop(0, 'rgba(0,0,0,0)');
+            leftVignette.addColorStop(1, 'rgba(110, 80, 50, 0.14)');
+            ctx.fillStyle = leftVignette;
+            ctx.fillRect(0, 0, pageW, pageH);
+
+            const rightVignette = ctx.createRadialGradient(spineX + pageW / 2, pageH / 2, pageW * 0.35, spineX + pageW / 2, pageH / 2, pageW * 0.85);
+            rightVignette.addColorStop(0, 'rgba(0,0,0,0)');
+            rightVignette.addColorStop(1, 'rgba(110, 80, 50, 0.16)');
+            ctx.fillStyle = rightVignette;
+            ctx.fillRect(spineX, 0, pageW, pageH);
+
+            ctx.strokeStyle = '#bfae93';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(5, 5, W - 10, H - 10);
+
+            ctx.strokeStyle = '#8c785f';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(12, 12, W - 24, H - 24);
+
+            ctx.beginPath();
+            ctx.moveTo(spineX, 0);
+            ctx.lineTo(spineX, H);
+            ctx.strokeStyle = '#9e8c75';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            const spineGrad = ctx.createLinearGradient(spineX - 30, 0, spineX + 30, 0);
+            spineGrad.addColorStop(0, 'rgba(40, 25, 10, 0)');
+            spineGrad.addColorStop(0.35, 'rgba(40, 25, 10, 0.12)');
+            spineGrad.addColorStop(0.5, 'rgba(20, 10, 0, 0.32)');
+            spineGrad.addColorStop(0.65, 'rgba(40, 25, 10, 0.12)');
+            spineGrad.addColorStop(1, 'rgba(40, 25, 10, 0)');
+
+            ctx.fillStyle = spineGrad;
+            ctx.fillRect(spineX - 30, 0, 60, pageH);
+
+            ctx.fillStyle = '#7a6451';
+            ctx.font = 'italic 15px "Georgia", serif';
+            ctx.textAlign = 'center';
+            const leftPageNum = currentSpread * 2 + 1;
+            const rightPageNum = currentSpread * 2 + 2;
+            ctx.fillText(`~ ✤ ${leftPageNum} ✤ ~`, pageW / 2, H - 22);
+            ctx.fillText(`~ ✤ ${rightPageNum} ✤ ~`, spineX + pageW / 2, H - 22);
+            ctx.textAlign = 'left';
+        }
+
+        function drawTargetLock(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.strokeStyle = '#d99b26';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, targetLock.radius + 6, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = '#2a1f18';
+            ctx.beginPath();
+            ctx.arc(0, 0, targetLock.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#d99b26';
+            ctx.font = 'bold 14px "Georgia", "Noto Serif TC", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("鎖頭", 0, 0);
+
+            ctx.restore();
+        }
+
+        function drawPageButtons(time = 0) {
+            drawBreathingSymbolButton(prevBtnArea, time);
+            drawBreathingSymbolButton(nextBtnArea, time);
+        }
+
+        function drawBreathingSymbolButton(btn, time) {
+            ctx.save();
+            const breath = (Math.sin(time * 0.0025) + 1) / 2;
+            const glowBlur = btn.hover ? 16 : 6 + breath * 10;
+            const alpha = btn.hover ? 1.0 : 0.6 + breath * 0.4;
+
+            ctx.shadowColor = 'rgba(217, 155, 38, ' + (0.5 + breath * 0.5) + ')';
+            ctx.shadowBlur = glowBlur;
+
+            ctx.fillStyle = btn.hover ? '#ffe8a3' : `rgba(217, 155, 38, ${alpha})`;
+
+            ctx.font = 'bold 42px "Georgia", "Times New Roman", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const centerX = btn.x + btn.w / 2;
+            const centerY = btn.y + btn.h / 2;
+            ctx.fillText(btn.symbol, centerX, centerY);
+
+            ctx.restore();
+        }
+
+        function drawTargetObject(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
+
+            ctx.fillStyle = '#d99b26';
+            ctx.strokeStyle = '#f7d58b';
+            ctx.lineWidth = 2;
+
+            const teeth = 8;
+            const outerR = draggableObj.radius;
+            const innerR = draggableObj.radius - 10;
+
+            ctx.beginPath();
+            for (let i = 0; i < teeth; i++) {
+                let angle = (i / teeth) * Math.PI * 2;
+                ctx.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR);
+                angle += (1 / teeth / 2) * Math.PI * 2;
+                ctx.lineTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#12100e';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function isInsideBtn(pos, btn) {
+            return pos.x >= btn.x && pos.x <= btn.x + btn.w && pos.y >= btn.y && pos.y <= btn.y + btn.h;
+        }
+
+        function updateCursorAndHover(pos) {
+            prevBtnArea.hover = isInsideBtn(pos, prevBtnArea);
+            nextBtnArea.hover = isInsideBtn(pos, nextBtnArea);
+
+            if (draggableObj.isDragging) {
+                canvas.style.cursor = 'grabbing';
+            } else if (prevBtnArea.hover || nextBtnArea.hover) {
+                canvas.style.cursor = 'pointer';
+            } else {
+                canvas.style.cursor = 'grab';
+            }
+        }
+
+        function isTitleShowing() {
+            return (performance.now() - startTime) < TITLE_SHOW_DURATION;
+        }
+
+        function onPointerDown(e) {
+            if (isTitleShowing() || isLevelCleared) return;
+            const pos = getPointerPos(e);
+
+            if (isInsideBtn(pos, prevBtnArea)) {
+                currentSpread = (currentSpread - 1 + 2) % 2;
+                return;
+            }
+            if (isInsideBtn(pos, nextBtnArea)) {
+                currentSpread = (currentSpread + 1) % 2;
+                return;
+            }
+
+            const worldMouseX = pos.x + currentSpread * spreadW;
+            const worldMouseY = pos.y;
+            const r = draggableObj.radius + 10;
+
+            const distPrimary = Math.hypot(worldMouseX - draggableObj.x, worldMouseY - draggableObj.y);
+
+            let mirrorX = draggableObj.x;
+            if (draggableObj.x > totalBookW - draggableObj.radius) mirrorX -= totalBookW;
+            else if (draggableObj.x < draggableObj.radius) mirrorX += totalBookW;
+
+            const distMirror = Math.hypot(worldMouseX - mirrorX, worldMouseY - draggableObj.y);
+
+            if (distPrimary < r) {
+                draggableObj.isDragging = true;
+                draggableObj.dragMode = 'primary';
+                draggableObj.dragOffsetX = worldMouseX - draggableObj.x;
+                draggableObj.dragOffsetY = worldMouseY - draggableObj.y;
+            } else if (distMirror < r) {
+                draggableObj.isDragging = true;
+                draggableObj.dragMode = 'seamless_mirror';
+                draggableObj.dragOffsetX = worldMouseX - mirrorX;
+                draggableObj.dragOffsetY = worldMouseY - draggableObj.y;
+            }
+            updateCursorAndHover(pos);
+        }
+
+        function onPointerMove(e) {
+            if (isTitleShowing() || isLevelCleared) return;
+            const pos = getPointerPos(e);
+            updateCursorAndHover(pos);
+
+            if (!draggableObj.isDragging) return;
+
+            const worldMouseX = pos.x + currentSpread * spreadW;
+            const worldMouseY = pos.y;
+
+            if (draggableObj.dragMode === 'primary') {
+                draggableObj.x = worldMouseX - draggableObj.dragOffsetX;
+            } else if (draggableObj.dragMode === 'seamless_mirror') {
+                let mirrorXOffset = (draggableObj.x < draggableObj.radius) ? -totalBookW : totalBookW;
+                draggableObj.x = (worldMouseX - draggableObj.dragOffsetX) + mirrorXOffset;
+            }
+
+            draggableObj.y = worldMouseY - draggableObj.dragOffsetY;
+
+            if (draggableObj.x < 0) draggableObj.x += totalBookW;
+            if (draggableObj.x >= totalBookW) draggableObj.x -= totalBookW;
+        }
+
+        function onPointerUp() {
+            if (!draggableObj.isDragging || isTitleShowing() || isLevelCleared) return;
+            draggableObj.isDragging = false;
+            canvas.style.cursor = 'grab';
+
+            const distToLock = Math.hypot(draggableObj.x - targetLock.x, draggableObj.y - targetLock.y);
+            if (distToLock < 45) {
+                isLevelCleared = true;
+                draggableObj.x = targetLock.x;
+                draggableObj.y = targetLock.y;
+                playSuccessSound();
+
+                document.getElementById('dialogueText').innerHTML = 
+                    `<span class="speaker-name">達米安：</span>「太好了！鎖被打開了！門後面似乎有什麼……」`;
+
+                setTimeout(() => {
+                    const saveData = { currentChapter: 2 };
+                    localStorage.setItem('repairGame_save', JSON.stringify(saveData));
+                    alert('恭喜解開第一章謎題！即將前往第二章……');
+                    window.location.href = 'chapter2.html';
+                }, 1200);
+            }
+        }
+
+        canvas.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+
+        canvas.addEventListener('touchstart', onPointerDown);
+        window.addEventListener('touchmove', onPointerMove);
+        window.addEventListener('touchend', onPointerUp);
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
