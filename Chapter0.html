@@ -434,7 +434,7 @@
         <div id="titleScreen" class="title-screen">
             <div class="title-container">
                 <h1 class="game-title">最後的修復</h1>
-                <div class="game-subtitle">— 繪本修復師 —</div>
+                <div class="game-subtitle">— 畫冊修復師 —</div>
                 <button class="start-btn" onclick="startGame(event)">開始遊戲</button>
             </div>
         </div>
@@ -474,6 +474,30 @@
     </div>
 
     <script>
+//----------------------------------------------------------------------------
+// 放在 script 頂層的全域物件
+let gameStats = {
+    score: 0,
+};
+// 默默增加分數的函數
+function addScore(points) {
+    // 1. 讀取現有分數（若無則預設為 0）
+    let currentScore = parseInt(localStorage.getItem('hiddenScore') || '0', 10);
+    
+    // 2. 累加分數
+    currentScore += points;
+    
+    // 3. 存回 localStorage
+    localStorage.setItem('hiddenScore', currentScore);
+}
+// 當玩家點擊「重新開始」或進入第零張初始畫面時執行
+function resetGameScore() {
+    localStorage.removeItem('hiddenScore'); 
+    // 或者寫 localStorage.setItem('hiddenScore', '0');
+    
+    console.log("遊戲重新開始，隱藏分數已清空！");
+}
+//----------------------------------------------------------------------------
     /* =================================================================
        1. 全局圖片與資源路徑設定區
     ================================================================= */
@@ -805,16 +829,17 @@
         "search_6": {
             speaker: "達米安",
             text: "「周圍的牆壁和空氣感覺都不一樣了……這裡好像已經不是剛剛的房間了。」",
-            next: "node_14"
-        },
-        "node_14": {
-            speaker: "達米安",
-            text: "「(震驚) 這裡……這裡是哪裡？我剛剛不是還在祖父的房間裡嗎？怎麼突然到了這個地方。等等，這裡好眼熟，這不就是畫本上祖父畫的老家嗎？！』",
             next: "end_demo"
         },
+        "node_14": {
+        speaker: "達米安",
+        text: "「(震驚) 這裡……這裡是哪裡？我剛剛不是還在祖父的房間裡嗎？怎麼突然到了這個地方。等等，這裡好眼熟，這不就是畫本上祖父畫的老家嗎？』",
+        scoreChange: 1, // 進入這個節點時自動加 1 分
+        next: "end_demo"
+    },
         "end_demo": {
             speaker: "選擇",
-            text: "【序章完】，進入第一章……"
+	    text: "「(震驚) 這裡……這裡是哪裡？我剛剛不是還在祖父的房間裡嗎？怎麼突然到了這個地方。等等，這裡好眼熟，這不就是畫本上祖父畫的老家嗎？！』【序章完】"
         }
     };
 
@@ -867,71 +892,80 @@
     }
 
     function renderNode(nodeKey) {
-        currentNodeKey = nodeKey;
-        const node = scenario[nodeKey];
+    currentNodeKey = nodeKey;
+    const node = scenario[nodeKey];
 
-        if (nodeKey === "end_demo") {
-            speakerName.innerText = node.speaker || "";
-            startTypewriter(node.text || "");
-            setTimeout(() => {
-                completeChapter0();
-            }, 2500);
-            return;
-        }
+    if (!node) return;
 
-        choicesContainer.innerHTML = "";
-        clearTimeout(bgSequenceTimer);
-        clearTimeout(autoAdvanceTimer);
-        isTransitioning = false;
-
-        if (node.bgSequence && node.bgSequence.length > 0) {
-            isTransitioning = true;
-            function playBgStep(seqIndex) {
-                const step = node.bgSequence[seqIndex];
-                switchBackground(step.bg);
-
-                if (step.duration) {
-                    bgSequenceTimer = setTimeout(() => {
-                        if (seqIndex + 1 < node.bgSequence.length) {
-                            playBgStep(seqIndex + 1);
-                        } else {
-                            isTransitioning = false;
-                        }
-                    }, step.duration);
-                } else {
-                    isTransitioning = false;
-                }
-            }
-            playBgStep(0);
-        } else if (node.bg) {
-            switchBackground(node.bg);
-        }
-
-        if (node.portrait) {
-            charImg.src = node.portrait;
-            charImg.classList.remove('hidden');
-        } else if (node.portrait === null) {
-            charImg.classList.add('hidden');
-        }
-
-        if (node.specialEffect === 'flash') {
-            triggerFlashEffect();
-        }
-
-        speakerName.innerText = node.speaker || "";
-        
-        if (!hasEncounteredFirstChoice) {
-            nextIndicator.style.display = "none";
-            startAutoAdvanceTimer(() => {
-                const currentNode = scenario[currentNodeKey];
-                if (currentNode && currentNode.next) {
-                    renderNode(currentNode.next);
-                }
-            });
-        }
-
-        startTypewriter(node.text || "");
+    // ==========================================
+    // 💡 在這裡加上隱藏加分檢查：只要這個節點有設定 scoreChange 就自動加分
+    if (node.scoreChange !== undefined) {
+        addScore(node.scoreChange);
     }
+    // ==========================================
+
+    if (nodeKey === "end_demo") {
+        speakerName.innerText = node.speaker || "";
+        startTypewriter(node.text || "");
+        setTimeout(() => {
+            completeChapter0();
+        }, 2500);
+        return;
+    }
+
+    choicesContainer.innerHTML = "";
+    clearTimeout(bgSequenceTimer);
+    clearTimeout(autoAdvanceTimer);
+    isTransitioning = false;
+
+    if (node.bgSequence && node.bgSequence.length > 0) {
+        isTransitioning = true;
+        function playBgStep(seqIndex) {
+            const step = node.bgSequence[seqIndex];
+            switchBackground(step.bg);
+
+            if (step.duration) {
+                bgSequenceTimer = setTimeout(() => {
+                    if (seqIndex + 1 < node.bgSequence.length) {
+                        playBgStep(seqIndex + 1);
+                    } else {
+                        isTransitioning = false;
+                    }
+                }, step.duration);
+            } else {
+                isTransitioning = false;
+            }
+        }
+        playBgStep(0);
+    } else if (node.bg) {
+        switchBackground(node.bg);
+    }
+
+    if (node.portrait) {
+        charImg.src = node.portrait;
+        charImg.classList.remove('hidden');
+    } else if (node.portrait === null) {
+        charImg.classList.add('hidden');
+    }
+
+    if (node.specialEffect === 'flash') {
+        triggerFlashEffect();
+    }
+
+    speakerName.innerText = node.speaker || "";
+    
+    if (!hasEncounteredFirstChoice) {
+        nextIndicator.style.display = "none";
+        startAutoAdvanceTimer(() => {
+            const currentNode = scenario[currentNodeKey];
+            if (currentNode && currentNode.next) {
+                renderNode(currentNode.next);
+            }
+        });
+    }
+
+    startTypewriter(node.text || "");
+}
 
     function startTypewriter(text) {
         isTyping = true;
