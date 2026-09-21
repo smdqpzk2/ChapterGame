@@ -445,7 +445,7 @@
         <div id="titleScreen" class="title-screen">
             <div class="title-container">
                 <h1 class="game-title">最後的修復</h1>
-                <div class="game-subtitle">— 畫冊修復師 —</div>
+                <div class="game-subtitle">— 物件修復師 —</div>
                 <button class="start-btn" onclick="startGame(event)">開始遊戲</button>
             </div>
         </div>
@@ -556,8 +556,8 @@
         const prologueData = [
             { isTitlePage: true, bg: null },
             { bg: getImg(PATH_CONFIG.bg.roomNight), text: "地點：祖父的臥室\n（背景傳來陣陣復古音樂聲……）" },
-            { bg: getImg(PATH_CONFIG.bg.roomNight), text: "達米安：「(開車時的內心獨白)我是達米安，一位藝術品修復師。但是今天要修復的物品很特別......是我祖父的遺物。」" },
-	    { bg: getImg(PATH_CONFIG.bg.roomNight), text: "達米安：「(伸懶腰)已經好久沒回來祖父家了，總感覺變了好多。 」" }
+            { bg: getImg(PATH_CONFIG.bg.roomNight), text: "「(開車時的內心獨白)我是達米安，一位物件修復師。但是今天要修復的物品很特別......是我祖父的遺物。」" },
+	    { bg: getImg(PATH_CONFIG.bg.roomNight), text: "「(伸懶腰)已經好久沒回來祖父家了，總感覺變了好多。 」" }
         ];
 
         let gameStarted = false;
@@ -666,31 +666,34 @@
             "node_2": { speaker: "達米安", text: "「已經好久沒聞到這個味道了，臭得令人懷念。」", next: "node_2A" },
  	    "node_2A": { speaker: "達米安", text: "「我看看......如果我沒記錯的話祖父的房間應該就在右手邊。」\n (走到門口)", next: "node_2B" },
  	    "node_2B": { speaker: "達米安", text: "「果然還是老樣子，漆都快掉光了還是不捨的換，不知道是不是因為有我的......」", next: "node_2C" },
- 	    "node_2C": { speaker: "達米安", text: "「....................................」", next: "node_2D" },
- 	    "node_2D": { speaker: "達米安", text: "「總之先進去吧。」\n (走進房間)", next: "node_2E" },
- 	    "node_2E": { speaker: "達米安", text: "「達米安:(環顧四周)跟我小時候長的一模一樣。」", next: "node_2F" },
- 	    "node_2F": { speaker: "達米安", text: "「達米安:接下來從哪裡開始呢...?」", next: "node_3" },
-            "node_3": { speaker: "選擇", text: "請選擇接下來的行動：",requireAll: true, bg: getImg(PATH_CONFIG.bg.roomNight), options: [{ text: "閱覽：祖父的書桌", target: "node_4" },{ text: "閱覽：祖父的衣櫃", target: "node_4A" }, { text: "閱覽：祖父的抽屜", target: "search_2" }] },
-            "search_2": { speaker: "達米安", text: "「檯燈，高級畫筆，舊照片...這畫筆我拿走一枝應該不會有人發現吧。」", next: "node_4B" },
-            "node_4": { speaker: "達米安", text: "「是他常穿的這幾套衣服，老氣但又不失風度。」", next: "node_4B" },
+ 	    "node_2C": { speaker: "達米安", text: "「................」", next: "node_2D" },
+ 	    "node_2D": { speaker: "達米安", text: "「總之先進去吧。」", next: "node_2Da" },
+	    "node_2Da": { speaker: "達米安", text: "(走進房間)", next: "node_2E" },
+ 	    "node_2E": { speaker: "達米安", text: "「(環顧四周)跟我小時候長的一模一樣。」", next: "node_2F" },
+ 	    "node_2F": { speaker: "達米安", text: "「接下來從哪裡開始呢...?」", next: "node_3" },
+            "node_3": { speaker: "選擇", text: "請選擇接下來的行動：",requireAll: true, bg: getImg(PATH_CONFIG.bg.roomNight), options: [{ text: "閱覽：祖父的書桌", target: "node_4" },{ text: "閱覽：祖父的衣櫃", target: "node_4Aa" }, { text: "閱覽：祖父的抽屜", target: "search_2" }] },
+            "search_2": { speaker: "達米安", text: "「就醫紀錄...應該是之前生病的吧。老人家就是這樣，不用太在意。」", next: "node_4A" },
+            "node_4": { speaker: "達米安", text: "「是他常穿的這幾套衣服，老氣但又不失風度。」", next: "node_4A" },
+            "node_4a": { speaker: "達米安", text: "「檯燈，高級畫筆，舊照片...這畫筆我拿走一支應該不會有人發現吧。」", next: "node_4A" },
 	    "node_4A": { speaker: "達米安", text: "(在整理床底時發現了一個盒子)\n 「(疑惑)床底下怎麼會有一個盒子?難道是私房錢?」", next: "node_4B" },
 	    "node_4B": { speaker: "達米安", text: "(打開盒子)\n 「(疑惑)這是什麼?一本書」",bg: getImg(PATH_CONFIG.bg.drawerClose), next: "node_4C" },
-	    "node_4C": { speaker: "達米安", text: "(打開本子)\n「達米安:「給達米安，當前路茫茫，就把試著把故事翻頁。」」",bg: getImg(PATH_CONFIG.bg.roomDetail),  next: "node_4D" },
+	    "node_4C": { speaker: "達米安", text: "(打開本子)\n「給達米安，當前路茫茫，就把試著把故事翻頁。」",bg: getImg(PATH_CONFIG.bg.roomDetail),  next: "node_4D" },
 	    "node_4D": { speaker: "達米安", text: "「為什麼他要在前面寫著這一段話?把故事翻頁?他說的話還是一如既往地難懂。」", next: "node_4E" },
-	    "node_4E": { speaker: "達米安", text: "(翻到下一頁)\n「為什麼這張還在，我不是把它......。我還是不懂他當初為什麼會那麼生氣，明明好好跟我說就好了啊!」", next: "node_4F" },
+	    "node_4E": { speaker: "達米安", text: "(翻到下一頁)\n「為什麼這張還在，我不是把它...............。」", next: "node_4Ea" },
+	    "node_4Ea": { speaker: "達米安", text: "(翻到下一頁)\n「我還是不懂他當初為什麼會那麼生氣，明明好好跟我說就好了啊!」", next: "node_4F" },
 	    "node_4F": { speaker: "達米安", text: "「(愧疚)但...我那時好像也太衝動了。」", next: "node_4G" },
 	    "node_4G": { speaker: "達米安", text: "(放下畫冊)\n「反正也找不到機會去問他了。要是當初我再勇敢一點...」", next: "node_4H" },
 	    "node_4H": { speaker: "達米安", text: "「算了，先繼續忙吧。晚一點再來思考。」", next: "node_4I" },
-	    "node_4I": { speaker: "達米安", text: "「(繼續整理)」", next: "node_4J" },
-	    "node_4J": { speaker: "達米安", text: "「(刺眼的陽光突然從窗外照進房間） 」", next: "node_4K" },
+	    "node_4I": { speaker: "達米安", text: "(繼續整理)", next: "node_4J" },
+	    "node_4J": { speaker: "達米安", text: "(刺眼的陽光突然從窗外照進房間）", next: "node_4K" },
 	    "node_4K": { speaker: "達米安", text: "「嘶…好亮。現在不是晚上嗎，怎麼外面這麼亮?」", next: "node_11" },
             "node_9": { speaker: "達米安", text: "（翻到下一頁）\n「我還記得這個地方，明媚的陽光，破舊的小屋，這不就是祖父的舊房子嗎。原來他還是很想念那個地方。明明就很破，搞不懂為什麼他當初要一直反對跟我們來城市。」", bgSequence: [{ bg: getImg(PATH_CONFIG.bg.toOldHouse), duration: 3000 }, { bg: getImg(PATH_CONFIG.bg.oldHouse), duration: 3000 }], next: "node_10" },
             "node_10": { speaker: "達米安", text: "「算了，這些往事等我整理完再慢慢回顧吧。」\n（繼續整理遺物……）", next: "node_11" },
-            "node_11": { speaker: "事件", text: "突然間，一股異樣強烈的耀眼燈光照進了屋子裡……", bg: getImg(PATH_CONFIG.bg.flashLight), specialEffect: "flash", options: [{ text: "走出房間確認異常", target: "search_5B" }, { text: "走出房間確認異常", target: "search_5" }] },
-            "search_5": { speaker: "達米安", text: "(躲到了祖父的床後面)\n 「 感覺陽光沒有要變小的跡象，只能出去看看什麼情況了。」", bg: getImg(PATH_CONFIG.bg.flashLightA), next: "node_14" },
-	    "search_5B": { speaker: "達米安", text: "「先出去看看發生了什麼事吧。」", scoreChange: 1,bg: getImg(PATH_CONFIG.bg.flashLightB), next: "node_14" },
-            "node_14": { speaker: "達米安", text: "「(震驚)這裡…這裡是哪裡?我剛剛不是還在祖父的房間裡嗎?怎麼突然到了這個地方。等等...這裡好眼熟，這不是就是祖父畫冊上的畫嗎?(摸了摸身上)我畫冊呢?我好像放在房間裡了!」", next: "node_15" },
-            "node_15": { speaker: "達米安", text: "「(嘗試打開門)」", next: "node_16" },
+            "node_11": { speaker: "事件", text: "突然間，一股異樣強烈的耀眼燈光照進了屋子裡……", bg: getImg(PATH_CONFIG.bg.flashLight), specialEffect: "flash", options: [{ text: "走出房間確認異常", target: "search_5B" }, { text: "試圖躲避刺眼的陽光", target: "search_5" }] },
+            "search_5": { speaker: "達米安", text: "(躲到了祖父的床後面)\n 「 感覺陽光沒有要變小的跡象，只能出去看看什麼情況了。」", bg: getImg(PATH_CONFIG.bg.flashLightB), next: "node_14" },
+	    "search_5B": { speaker: "達米安", text: "「先出去看看發生了什麼事吧。」", scoreChange: 1,bg: getImg(PATH_CONFIG.bg.flashLightA), next: "node_14" },
+            "node_14": { speaker: "達米安", text: "「(震驚)這裡…這裡是哪裡?我剛剛不是還在祖父的房間裡嗎?怎麼突然到了這個地方。等等...這裡好眼熟，這不是就是祖父畫冊上的畫嗎?我記得我好像把畫冊放在房間裡了，我必須回到房間。」", next: "node_15" },
+            "node_15": { speaker: "達米安", text: "(嘗試打開門)", next: "node_16" },
             "node_16": { speaker: "達米安", text: "「門怎麼突然打不開了!明明剛剛還可以的說。我不會回不去了吧!怎麼辦...對了!剛剛畫冊第一句話是「當前路茫茫，就把試著把故事翻頁。」會不會這個就是祖父給我的提示。」", next: "end_demo" },
             "end_demo": { speaker: "選擇", text: "【序章完】" }
         };
