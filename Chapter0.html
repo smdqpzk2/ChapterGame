@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最後的修復 - 塵封的畫冊</title>
+    <style>
+        :root {
+            --bg-color: #121110;
+            --dialog-bg: rgba(20, 18, 16, 0.92);
+            --border-color: #d4c5a9;
+            --text-gold: #d99b26;
+            --text-gold-light: #f7d58b;
+            --text-white: #f4eee1;
+            --font-serif: 'Georgia', 'Noto Serif TC', 'PMingLiU', serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-white);
+            font-family: var(--font-serif);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-stage {
+            position: relative;
+            width: 1000px;
+            height: 562px;
+            background-color: #000000;
+            border: 4px solid #3a2e2b;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .shake-effect {
+            animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes screenShake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 1px, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, -2px, 0); }
+            40%, 60% { transform: translate3d(6px, 2px, 0); }
+        }
+
+        .flash-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #ffffff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 150;
+            transition: opacity 0.1s ease;
+        }
+
+        .flash-overlay.active {
+            opacity: 1;
+            animation: flashFade 1.5s forwards ease-out;
+        }
+
+        @keyframes flashFade {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .title-screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: #0a0a0a;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .title-screen::before {
+            content: '';
+            position: absolute;
+            top: 25px; left: 25px;
+            right: 25px; bottom: 25px;
+            border: 1px solid #ffffff;
+            pointer-events: none;
+        }
+
+        .title-screen::after {
+            content: '';
+            position: absolute;
+            top: 33px; left: 33px;
+            right: 33px; bottom: 33px;
+            border: 1px solid #ffffff;
+            pointer-events: none;
+        }
+
+        .title-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .title-screen.hidden {
+            display: none;
+        }
+
+        .title-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .game-title {
+            font-family: "Georgia", "Noto Serif TC", "PMingLiU", serif;
+            font-size: 3.8rem;
+            font-weight: bold;
+            letter-spacing: 12px;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+
+        .game-subtitle {
+            font-family: "Georgia", "Noto Serif TC", "PMingLiU", serif;
+            font-size: 1.35rem;
+            font-style: italic;
+            letter-spacing: 4px;
+            color: #cccccc;
+            margin-bottom: 40px;
+        }
+
+        .start-btn {
+            position: relative;
+            background: transparent;
+            border: 1px solid #ffffff;
+            color: #ffffff;
+            padding: 12px 50px;
+            font-family: "Georgia", "Noto Serif TC", "PMingLiU", serif;
+            font-size: 1.1rem;
+            letter-spacing: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .start-btn:hover {
+            background: #ffffff;
+            color: #0a0a0a;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+            transform: translateY(-2deg);
+        }
+
+        .prologue-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: #000000;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 1.2s ease;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .prologue-overlay.show {
+            opacity: 1;
+        }
+
+        .prologue-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: opacity 1s ease, transform 8s ease;
+            transform: scale(1);
+        }
+
+        .prologue-bg.zoom {
+            transform: scale(1.08);
+        }
+
+        .chapter-card {
+            position: relative;
+            z-index: 102;
+            padding: 40px 70px;
+            background: rgba(18, 17, 16, 0.85);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 0 35px rgba(0,0,0,0.95), inset 0 0 15px rgba(217, 155, 38, 0.2);
+            text-align: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .chapter-number {
+            font-size: 1.1rem;
+            letter-spacing: 8px;
+            color: var(--text-gold);
+            margin-bottom: 12px;
+        }
+
+        .chapter-title-main {
+            font-size: 2.3rem;
+            letter-spacing: 12px;
+            color: var(--text-gold-light);
+            text-shadow: 0 0 12px rgba(217, 155, 38, 0.4);
+        }
+
+        .prologue-textbox {
+            position: absolute;
+            bottom: 0; left: 0;
+            z-index: 101;
+            width: 100%;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 60%, rgba(0,0,0,0));
+            color: var(--text-white);
+            padding: 40px 40px 35px 40px;
+            text-align: center;
+        }
+
+        .prologue-text {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            letter-spacing: 1px;
+            min-height: 2.2em;
+        }
+
+        .main-game-layer {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+        }
+
+        .stage-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: opacity 1.2s ease-in-out;
+            z-index: 1;
+            opacity: 0;
+        }
+
+        .stage-bg.active {
+            opacity: 1;
+        }
+
+        .character-portrait {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-height: 400px;
+            object-fit: contain;
+            transition: all 0.5s ease;
+            z-index: 2;
+        }
+
+        .character-portrait.hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        .dialogue-box {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 94%;
+            height: 140px;
+            background: var(--dialog-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            padding: 18px 25px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(212, 197, 169, 0.15);
+        }
+
+        .speaker-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--text-gold);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px rgba(217, 155, 38, 0.3);
+        }
+
+        .dialogue-text {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: var(--text-white);
+            white-space: pre-line;
+        }
+
+        .next-indicator {
+            position: absolute;
+            bottom: 12px;
+            right: 20px;
+            font-size: 0.9rem;
+            color: var(--text-gold);
+        }
+
+        .next-indicator.blink {
+            animation: blink 1.2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 0.3; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(3px); }
+        }
+
+        .choices-container {
+            position: absolute;
+            top: 45%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 20;
+        }
+
+        .choice-btn {
+            position: relative;
+            background: rgba(18, 15, 13, 0.92);
+            border: 1px solid var(--border-color);
+            color: var(--text-white);
+            padding: 15px 25px;
+            font-family: inherit;
+            font-size: 1.05rem;
+            text-align: center;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.7);
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(15px) scale(0.95);
+            animation: optionPopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.27) forwards;
+            transition: background 0.25s ease, border-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+        }
+
+        @keyframes optionPopIn {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .choice-btn:hover {
+            background: linear-gradient(135deg, rgba(217, 155, 38, 0.95) 0%, rgba(180, 120, 20, 0.95) 100%);
+            color: #0d0c0b;
+            font-weight: bold;
+            border-color: #fff2d1;
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(217, 155, 38, 0.5);
+        }
+
+        .choice-btn.falling {
+            animation: buttonRotateFade 0.8s ease-in-out forwards !important;
+            pointer-events: none;
+        }
+
+        @keyframes buttonRotateFade {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            20% { transform: translateY(-8px) rotate(-2deg); opacity: 1; }
+            100% { transform: translateY(300px) rotate(15deg); opacity: 0; }
+        }
+
+        .choice-btn.fade-out {
+            animation: buttonFadeOut 0.4s ease forwards !important;
+            pointer-events: none;
+        }
+
+        @keyframes buttonFadeOut {
+            to { opacity: 0; transform: scale(0.9); }
+        }
+
+/* 已點擊過的選項樣式 (灰色/已讀) */
+        .choice-btn.clicked {
+            background: rgba(40, 35, 30, 0.9) !important;
+            border-color: #61574a !important;
+            color: #8a8275 !important;
+            cursor: pointer;
+            box-shadow: none !important;
+            transform: none !important;
+            opacity: 0.75;
+        }
+        
+        .choice-btn.clicked:hover {
+            background: rgba(50, 45, 40, 0.95) !important;
+            color: #a89f91 !important;
+            border-color: #7a6e60 !important;
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+/* 完全禁用的已讀按鈕樣式 */
+        .choice-btn.disabled {
+            background: rgba(30, 26, 23, 0.7) !important;
+            border-color: #4a4035 !important;
+            color: #6e6559 !important;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+            transform: none !important;
+            opacity: 0.6;
+            pointer-events: none; /* 徹底禁止點擊 */
+        }
+        
+        .choice-btn.disabled:hover {
+            background: rgba(30, 26, 23, 0.7) !important;
+            color: #6e6559 !important;
+            border-color: #4a4035 !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-stage" id="gameStage" onclick="handleStageClick()">
+        <div id="flashOverlay" class="flash-overlay"></div>
+
+        <div id="titleScreen" class="title-screen">
+            <div class="title-container">
+                <h1 class="game-title">最後的修復</h1>
+                <div class="game-subtitle">— 畫冊修復師 —</div>
+                <button class="start-btn" onclick="startGame(event)">開始遊戲</button>
+            </div>
+        </div>
+
+        <div id="prologueOverlay" class="prologue-overlay">
+            <img id="prologueBg" class="prologue-bg" src="" alt="前言背景">
+            <div class="chapter-card" id="chapterCard">
+                <div class="chapter-number">- 序章 -</div>
+                <div class="chapter-title-main">塵封的畫冊</div>
+            </div>
+            <div class="prologue-textbox" id="prologueTextbox" style="display: none;">
+                <p id="prologueText" class="prologue-text"></p>
+            </div>
+        </div>
+
+        <div id="mainGameLayer" class="main-game-layer">
+            <img id="bgImg1" class="stage-bg active" src="" alt="背景1">
+            <img id="bgImg2" class="stage-bg" src="" alt="背景2">
+            <img id="charImg" class="character-portrait hidden" src="" alt="立繪">
+
+            <div class="dialogue-box">
+                <div class="speaker-name" id="speakerName">---</div>
+                <div class="dialogue-text" id="dialogueText"></div>
+                <div class="next-indicator" id="nextIndicator">▼</div>
+            </div>
+
+            <div class="choices-container" id="choicesContainer"></div>
+        </div>
+    </div>
+
+    <!-- 引用共用對話系統 -->
+    <script src="dialogueSystem.js"></script>
+    <script>
+        let gameStats = { score: 0 };
+        function addScore(points) {
+            let currentScore = parseInt(localStorage.getItem('hiddenScore') || '0', 10);
+            currentScore += points;
+            localStorage.setItem('hiddenScore', currentScore);
+        }
+
+        const PATH_CONFIG = {
+            imgBase: "./Picture/Chapter0/",
+            bg: {
+                roomDay:     "E.png",
+                roomNight:   "J.png",
+                drawerClose: "B.png",
+                bookOpen:    "C.png",
+                roomDetail:  "D.png",
+                flashLight:  "F.png",
+ 		flashLightA:  "FA.jpeg",
+		flashLightB:  "FB.jpeg",
+                doorOpen:    "G.png",
+                toOldHouse:  "I.png",
+                oldHouse:    "H.png"
+            },
+            portrait: {
+                damienNormal: "damien_normal.png",
+                damienSurprise: "damien_surprise.png"
+            }
+        };
+
+        function getImg(filename) {
+            if (!filename) return null;
+            return PATH_CONFIG.imgBase + filename;
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTypeSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400 + Math.random() * 100, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.04);
+        }
+
+        function playClickSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.08);
+        }
+
+        function triggerFlashEffect() {
+            const flash = document.getElementById('flashOverlay');
+            const stage = document.getElementById('gameStage');
+            flash.classList.remove('active');
+            stage.classList.remove('shake-effect');
+            void flash.offsetWidth;
+            flash.classList.add('active');
+            stage.classList.add('shake-effect');
+            setTimeout(() => stage.classList.remove('shake-effect'), 500);
+        }
+
+        const prologueData = [
+            { isTitlePage: true, bg: null },
+            { bg: getImg(PATH_CONFIG.bg.roomNight), text: "地點：祖父的臥室\n（背景傳來陣陣復古音樂聲……）" },
+            { bg: getImg(PATH_CONFIG.bg.roomNight), text: "達米安：「(開車時的內心獨白)我是達米安，一位藝術品修復師。但是今天要修復的物品很特別......是我祖父的遺物。」" },
+	    { bg: getImg(PATH_CONFIG.bg.roomNight), text: "達米安：「(伸懶腰)已經好久沒回來祖父家了，總感覺變了好多。 」" }
+        ];
+
+        let gameStarted = false;
+        let prologueIndex = 0;
+        let isPrologueActive = true;
+        let prologueTypeTimer = null;
+        let autoAdvanceTimer = null;
+        let hasEncounteredFirstChoice = false;
+
+        function startAutoAdvanceTimer(onAdvance) {
+            clearTimeout(autoAdvanceTimer);
+            autoAdvanceTimer = setTimeout(() => {
+                if (!hasEncounteredFirstChoice && onAdvance) onAdvance();
+            }, 5000);
+        }
+
+        function startGame(event) {
+            if (event) event.stopPropagation();
+            if (gameStarted) return;
+            gameStarted = true;
+            playClickSound();
+
+            const titleScreen = document.getElementById('titleScreen');
+            const prologueOverlay = document.getElementById('prologueOverlay');
+
+            titleScreen.classList.add('fade-out');
+            setTimeout(() => {
+                titleScreen.classList.add('hidden');
+                prologueOverlay.style.display = 'flex';
+                renderPrologueSlide(0);
+                requestAnimationFrame(() => prologueOverlay.classList.add('show'));
+            }, 1000);
+        }
+
+        function renderPrologueSlide(index) {
+            clearInterval(prologueTypeTimer);
+            const bgEl = document.getElementById('prologueBg');
+            const cardEl = document.getElementById('chapterCard');
+            const textboxEl = document.getElementById('prologueTextbox');
+            const textEl = document.getElementById('prologueText');
+            const data = prologueData[index];
+
+            if (data.isTitlePage) {
+                bgEl.style.opacity = '0';
+                cardEl.style.display = 'block';
+                textboxEl.style.display = 'none';
+                startAutoAdvanceTimer(() => nextPrologueSlide());
+            } else {
+                cardEl.style.display = 'none';
+                textboxEl.style.display = 'block';
+                textEl.innerText = "";
+                bgEl.src = data.bg || "";
+                bgEl.style.opacity = data.bg ? '1' : '0';
+                bgEl.classList.remove('zoom');
+                void bgEl.offsetWidth;
+                bgEl.classList.add('zoom');
+
+                startPrologueTypewriter(data.text);
+                startAutoAdvanceTimer(() => nextPrologueSlide());
+            }
+        }
+
+        function startPrologueTypewriter(fullText) {
+            const textEl = document.getElementById('prologueText');
+            let charIndex = 0;
+            prologueTypeTimer = setInterval(() => {
+                if (charIndex < fullText.length) {
+                    textEl.innerText += fullText.charAt(charIndex);
+                    playTypeSound();
+                    charIndex++;
+                } else {
+                    clearInterval(prologueTypeTimer);
+                }
+            }, 40);
+        }
+
+        function nextPrologueSlide() {
+            if (!isPrologueActive) return;
+            prologueIndex++;
+            if (prologueIndex < prologueData.length) {
+                renderPrologueSlide(prologueIndex);
+            } else {
+                endPrologue();
+            }
+        }
+
+        function endPrologue() {
+            if (!isPrologueActive) return;
+            clearInterval(prologueTypeTimer);
+            clearTimeout(autoAdvanceTimer);
+            isPrologueActive = false;
+
+            const overlay = document.getElementById('prologueOverlay');
+            overlay.classList.remove('show');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                document.getElementById('mainGameLayer').style.display = 'block';
+                dialogueSystem.renderNode("node_1");
+            }, 1200);
+        }
+
+        // 初始化對話系統實例
+        const scenario = {
+            "node_1": { speaker: "選擇", text: "請選擇接下來的行動：", bg: getImg(PATH_CONFIG.bg.roomNight), options: [{ text: "閱覽：走進祖父的房間", target: "node_2" }, { text: "尋找：觀察祖父的房子門口", target: "search_1" }] },
+            "search_1": { speaker: "達米安", text: "「因為太久沒人打開，門口已經積了厚厚一層灰塵 。」", next: "node_1" },
+            "node_2": { speaker: "達米安", text: "「已經好久沒聞到這個味道了，臭得令人懷念。」", next: "node_2A" },
+ 	    "node_2A": { speaker: "達米安", text: "「我看看......如果我沒記錯的話祖父的房間應該就在右手邊。」\n (走到門口)", next: "node_2B" },
+ 	    "node_2B": { speaker: "達米安", text: "「果然還是老樣子，漆都快掉光了還是不捨的換，不知道是不是因為有我的......」", next: "node_2C" },
+ 	    "node_2C": { speaker: "達米安", text: "「....................................」", next: "node_2D" },
+ 	    "node_2D": { speaker: "達米安", text: "「總之先進去吧。」\n (走進房間)", next: "node_2E" },
+ 	    "node_2E": { speaker: "達米安", text: "「達米安:(環顧四周)跟我小時候長的一模一樣。」", next: "node_2F" },
+ 	    "node_2F": { speaker: "達米安", text: "「達米安:接下來從哪裡開始呢...?」", next: "node_3" },
+            "node_3": { speaker: "選擇", text: "請選擇接下來的行動：",requireAll: true, bg: getImg(PATH_CONFIG.bg.roomNight), options: [{ text: "閱覽：祖父的書桌", target: "node_4" },{ text: "閱覽：祖父的衣櫃", target: "node_4A" }, { text: "閱覽：祖父的抽屜", target: "search_2" }] },
+            "search_2": { speaker: "達米安", text: "「檯燈，高級畫筆，舊照片...這畫筆我拿走一枝應該不會有人發現吧。」", next: "node_4B" },
+            "node_4": { speaker: "達米安", text: "「是他常穿的這幾套衣服，老氣但又不失風度。」", next: "node_4B" },
+	    "node_4A": { speaker: "達米安", text: "(在整理床底時發現了一個盒子)\n 「(疑惑)床底下怎麼會有一個盒子?難道是私房錢?」", next: "node_4B" },
+	    "node_4B": { speaker: "達米安", text: "(打開盒子)\n 「(疑惑)這是什麼?一本書」",bg: getImg(PATH_CONFIG.bg.drawerClose), next: "node_4C" },
+	    "node_4C": { speaker: "達米安", text: "(打開本子)\n「達米安:「給達米安，當前路茫茫，就把試著把故事翻頁。」」",bg: getImg(PATH_CONFIG.bg.roomDetail),  next: "node_4D" },
+	    "node_4D": { speaker: "達米安", text: "「為什麼他要在前面寫著這一段話?把故事翻頁?他說的話還是一如既往地難懂。」", next: "node_4E" },
+	    "node_4E": { speaker: "達米安", text: "(翻到下一頁)\n「為什麼這張還在，我不是把它......。我還是不懂他當初為什麼會那麼生氣，明明好好跟我說就好了啊!」", next: "node_4F" },
+	    "node_4F": { speaker: "達米安", text: "「(愧疚)但...我那時好像也太衝動了。」", next: "node_4G" },
+	    "node_4G": { speaker: "達米安", text: "(放下畫冊)\n「反正也找不到機會去問他了。要是當初我再勇敢一點...」", next: "node_4H" },
+	    "node_4H": { speaker: "達米安", text: "「算了，先繼續忙吧。晚一點再來思考。」", next: "node_4I" },
+	    "node_4I": { speaker: "達米安", text: "「(繼續整理)」", next: "node_4J" },
+	    "node_4J": { speaker: "達米安", text: "「(刺眼的陽光突然從窗外照進房間） 」", next: "node_4K" },
+	    "node_4K": { speaker: "達米安", text: "「嘶…好亮。現在不是晚上嗎，怎麼外面這麼亮?」", next: "node_11" },
+            "node_9": { speaker: "達米安", text: "（翻到下一頁）\n「我還記得這個地方，明媚的陽光，破舊的小屋，這不就是祖父的舊房子嗎。原來他還是很想念那個地方。明明就很破，搞不懂為什麼他當初要一直反對跟我們來城市。」", bgSequence: [{ bg: getImg(PATH_CONFIG.bg.toOldHouse), duration: 3000 }, { bg: getImg(PATH_CONFIG.bg.oldHouse), duration: 3000 }], next: "node_10" },
+            "node_10": { speaker: "達米安", text: "「算了，這些往事等我整理完再慢慢回顧吧。」\n（繼續整理遺物……）", next: "node_11" },
+            "node_11": { speaker: "事件", text: "突然間，一股異樣強烈的耀眼燈光照進了屋子裡……", bg: getImg(PATH_CONFIG.bg.flashLight), specialEffect: "flash", options: [{ text: "走出房間確認異常", target: "search_5B" }, { text: "走出房間確認異常", target: "search_5" }] },
+            "search_5": { speaker: "達米安", text: "(躲到了祖父的床後面)\n 「 感覺陽光沒有要變小的跡象，只能出去看看什麼情況了。」", bg: getImg(PATH_CONFIG.bg.flashLightA), next: "node_14" },
+	    "search_5B": { speaker: "達米安", text: "「先出去看看發生了什麼事吧。」", scoreChange: 1,bg: getImg(PATH_CONFIG.bg.flashLightB), next: "node_14" },
+            "node_14": { speaker: "達米安", text: "「(震驚)這裡…這裡是哪裡?我剛剛不是還在祖父的房間裡嗎?怎麼突然到了這個地方。等等...這裡好眼熟，這不是就是祖父畫冊上的畫嗎?(摸了摸身上)我畫冊呢?我好像放在房間裡了!」", next: "node_15" },
+            "node_15": { speaker: "達米安", text: "「(嘗試打開門)」", next: "node_16" },
+            "node_16": { speaker: "達米安", text: "「門怎麼突然打不開了!明明剛剛還可以的說。我不會回不去了吧!怎麼辦...對了!剛剛畫冊第一句話是「當前路茫茫，就把試著把故事翻頁。」會不會這個就是祖父給我的提示。」", next: "end_demo" },
+            "end_demo": { speaker: "選擇", text: "【序章完】" }
+        };
+
+        let bgSequenceTimer = null;
+        let isTransitioning = false;
+        let currentBgLayer = 1;
+        const bgImg1 = document.getElementById('bgImg1');
+        const bgImg2 = document.getElementById('bgImg2');
+        const charImg = document.getElementById('charImg');
+        const nextIndicator = document.getElementById('nextIndicator');
+
+        function switchBackground(newImgUrl) {
+            if (!newImgUrl) return;
+            if (currentBgLayer === 1) {
+                bgImg2.src = newImgUrl;
+                bgImg2.classList.add('active');
+                bgImg1.classList.remove('active');
+                currentBgLayer = 2;
+            } else {
+                bgImg1.src = newImgUrl;
+                bgImg1.classList.add('active');
+                bgImg2.classList.remove('active');
+                currentBgLayer = 1;
+            }
+        }
+
+        const dialogueSystem = new GameDialogueSystem({
+            scenario: scenario,
+            initialNode: "node_1",
+            playTypeSound: playTypeSound,
+            playClickSound: playClickSound,
+            onNodeChange: (nodeKey, node) => {
+                if (node.scoreChange !== undefined) {
+                    addScore(node.scoreChange);
+                }
+
+                if (nodeKey === "end_demo") {
+                    setTimeout(() => {
+                        const saveData = { currentChapter: 1, startWithDialogue: true };
+                        localStorage.setItem('repairGame_save', JSON.stringify(saveData));
+                        window.location.href = 'Chapter1.html';
+                    }, 2500);
+                    return;
+                }
+
+                clearTimeout(bgSequenceTimer);
+                clearTimeout(autoAdvanceTimer);
+                isTransitioning = false;
+
+                if (node.bgSequence && node.bgSequence.length > 0) {
+                    isTransitioning = true;
+                    function playBgStep(seqIndex) {
+                        const step = node.bgSequence[seqIndex];
+                        switchBackground(step.bg);
+                        if (step.duration) {
+                            bgSequenceTimer = setTimeout(() => {
+                                if (seqIndex + 1 < node.bgSequence.length) {
+                                    playBgStep(seqIndex + 1);
+                                } else {
+                                    isTransitioning = false;
+                                }
+                            }, step.duration);
+                        } else {
+                            isTransitioning = false;
+                        }
+                    }
+                    playBgStep(0);
+                } else if (node.bg) {
+                    switchBackground(node.bg);
+                }
+
+                if (node.portrait) {
+                    charImg.src = node.portrait;
+                    charImg.classList.remove('hidden');
+                } else if (node.portrait === null) {
+                    charImg.classList.add('hidden');
+                }
+
+                if (node.specialEffect === 'flash') {
+                    triggerFlashEffect();
+                }
+
+                if (!hasEncounteredFirstChoice) {
+                    nextIndicator.style.display = "none";
+                    startAutoAdvanceTimer(() => {
+                        const currentNode = scenario[dialogueSystem.currentNodeKey];
+                        if (currentNode && currentNode.next) {
+                            dialogueSystem.renderNode(currentNode.next);
+                        }
+                    });
+                }
+            },
+            onFinish: (nodeKey) => {
+                if (nodeKey === "end_demo") {
+                    const saveData = { currentChapter: 1, startWithDialogue: true };
+                    localStorage.setItem('repairGame_save', JSON.stringify(saveData));
+                    window.location.href = 'Chapter1.html';
+                }
+            }
+        });
+
+        // 攔截選項出現事件以設定 first choice 狀態
+        const originalRenderOptions = dialogueSystem.renderOptions.bind(dialogueSystem);
+        dialogueSystem.renderOptions = function(options) {
+            hasEncounteredFirstChoice = true;
+            clearTimeout(autoAdvanceTimer);
+            originalRenderOptions(options);
+            if (nextIndicator) nextIndicator.style.display = "none";
+        };
+
+        function handleStageClick() {
+            if (!gameStarted) return;
+            if (dialogueSystem.currentNodeKey === "end_demo") {
+                const saveData = { currentChapter: 1, startWithDialogue: true };
+                localStorage.setItem('repairGame_save', JSON.stringify(saveData));
+                window.location.href = 'Chapter1.html';
+                return;
+            }
+            if (!hasEncounteredFirstChoice) return;
+            if (isPrologueActive) {
+                playClickSound();
+                nextPrologueSlide();
+                return;
+            }
+            if (isTransitioning) return;
+
+            const node = scenario[dialogueSystem.currentNodeKey];
+            if (node.options && node.options.length > 0) return;
+
+            dialogueSystem.handleDialogueClick();
+        }
+
+        function preloadImages() {
+            const urls = new Set();
+            prologueData.forEach(item => item.bg && urls.add(item.bg));
+            Object.values(scenario).forEach(node => {
+                if (node.bg) urls.add(node.bg);
+                if (node.bgSequence) node.bgSequence.forEach(item => item.bg && urls.add(item.bg));
+                if (node.portrait) urls.add(node.portrait);
+            });
+            urls.forEach(url => { const img = new Image(); img.src = url; });
+        }
+
+        window.addEventListener('DOMContentLoaded', preloadImages);
+    </script>
+</body>
+</html>
